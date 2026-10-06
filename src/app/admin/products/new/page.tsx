@@ -75,7 +75,7 @@ export default function NewProductPage() {
         router.push("/admin/products");
         router.refresh();
       } else {
-        alert("Erreur: " + result.error);
+        alert("Erreur lors de la création du produit: " + (result.error || "Erreur inconnue"));
       }
     } catch (err: any) {
       alert("Erreur: " + err.message);

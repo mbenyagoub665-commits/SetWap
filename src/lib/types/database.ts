@@ -51,3 +51,11 @@ export interface UpsertProductInput {
   category: ProductCategory;
   image_url?: string | null;
 }
+
+export interface DeliveryRate {
+  wilaya_code: string;
+  wilaya_name: string;
+  domicile: number;
+  bureau: number;
+  updated_at: string;
+}

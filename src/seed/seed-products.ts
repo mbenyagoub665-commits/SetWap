@@ -65,6 +65,14 @@ export const SAMPLE_PRODUCTS = [
     category: "Soins du Corps",
     image_url: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80",
   },
+  {
+    name: "Crème Suprême Jeunesse & Or 24K",
+    description: "Soin anti-âge suprême enrichi en particules d'or 24K et peptides précieux pour un éclat absolu et une fermeté retrouvée.",
+    price: 8000,
+    stock: 12,
+    category: "Soins du Visage",
+    image_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=800&q=80",
+  },
 ];
 
 export async function seedProducts() {

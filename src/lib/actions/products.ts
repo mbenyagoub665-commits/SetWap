@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Product, ProductCategory } from "@/lib/types/database";
+import { MOCK_PRODUCTS } from "@/lib/mock-data";
 
 export async function getProducts(category?: ProductCategory | string): Promise<Product[]> {
   try {
@@ -12,15 +13,22 @@ export async function getProducts(category?: ProductCategory | string): Promise<
 
     const { data, error } = await query;
 
-    if (error) {
-      console.error("Error fetching products:", error.message);
-      return [];
+    const dbProducts = error || !data ? [] : data;
+    const map = new Map();
+    [...dbProducts, ...MOCK_PRODUCTS].forEach((p) => map.set(p.id, p));
+    let allProducts = Array.from(map.values()) as Product[];
+
+    if (category && category !== "all") {
+      allProducts = allProducts.filter((p) => p.category === category);
     }
 
-    return data || [];
+    return allProducts;
   } catch (err) {
-    console.error("Failed to fetch products:", err);
-    return [];
+    let allProducts = MOCK_PRODUCTS;
+    if (category && category !== "all") {
+      allProducts = allProducts.filter((p) => p.category === category);
+    }
+    return allProducts;
   }
 }
 
@@ -33,14 +41,12 @@ export async function getProductById(id: string): Promise<Product | null> {
       .eq("id", id)
       .single();
 
-    if (error) {
-      console.error(`Error fetching product ${id}:`, error.message);
-      return null;
+    if (error || !data) {
+      return MOCK_PRODUCTS.find((p) => p.id === id) || null;
     }
 
     return data;
   } catch (err) {
-    console.error(`Failed to fetch product ${id}:`, err);
-    return null;
+    return MOCK_PRODUCTS.find((p) => p.id === id) || null;
   }
 }

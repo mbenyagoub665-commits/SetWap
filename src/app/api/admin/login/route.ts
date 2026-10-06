@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
       { success: false, error: "Mot de passe incorrect." },
       { status: 401 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erreur de serveur.";
     return NextResponse.json(
-      { success: false, error: err.message || "Erreur de serveur." },
+      { success: false, error: message },
       { status: 500 }
     );
   }

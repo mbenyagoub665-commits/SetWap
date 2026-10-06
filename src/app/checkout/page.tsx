@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { ShoppingBag, ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
-import { createOrder } from "@/lib/actions/orders";
+import { createOrder, getDeliveryRates } from "@/lib/actions/orders";
+import { DeliveryRate } from "@/lib/types/database";
+import { DEFAULT_DELIVERY_RATES } from "@/lib/delivery-defaults";
 
 const ALGERIAN_WILAYAS = [
   "01. Adrar", "02. Chlef", "03. Laghouat", "04. Oum El Bouaghi", "05. Batna",
@@ -24,16 +26,47 @@ const ALGERIAN_WILAYAS = [
 ];
 
 export default function CheckoutPage() {
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal: baseSubtotal, clearCart } = useCart();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [wilaya, setWilaya] = useState("16. Alger");
+  const [quantity, setQuantity] = useState(1);
+  const [deliveryType, setDeliveryType] = useState<"domicile" | "bureau">("domicile");
+  const [deliveryRates, setDeliveryRates] = useState<DeliveryRate[]>([]);
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderRef, setOrderRef] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    async function loadRates() {
+      const rates = await getDeliveryRates();
+      if (rates && rates.length > 0) {
+        setDeliveryRates(rates);
+      }
+    }
+    loadRates();
+  }, []);
+
+  const subtotal = baseSubtotal;
+
+  const wilayaCode = wilaya.slice(0, 2);
+  const currentRateObj = deliveryRates.find((r) => r.wilaya_code === wilayaCode);
+  const deliveryPrice = currentRateObj
+    ? deliveryType === "domicile"
+      ? currentRateObj.domicile
+      : currentRateObj.bureau
+    : 600;
+
+  const isAvailable = currentRateObj
+    ? deliveryType === "domicile"
+      ? currentRateObj.domicile > 0
+      : currentRateObj.bureau > 0
+    : true;
+
+  const total = subtotal + (isAvailable ? deliveryPrice : 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,15 +75,20 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!isAvailable) {
+      setErrorMessage("Service non disponible pour cette wilaya");
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
       const result = await createOrder({
-        customer_name: `${name} (${wilaya}${address ? " - " + address : ""})`,
+        customer_name: `${name} (${wilaya} - ${deliveryType === "domicile" ? "Domicile" : "Bureau"}${address ? " - " + address : ""})`,
         customer_phone: phone,
         items: items,
-        total: subtotal,
+        total: total,
       });
 
       if (result.success && result.order) {
@@ -58,10 +96,11 @@ export default function CheckoutPage() {
         setOrderSuccess(true);
         clearCart();
       } else {
-        setErrorMessage(result.error || "Une erreur est survenue lors de l'enregistrement de la commande.");
+        setErrorMessage("Une erreur est survenue lors de l'enregistrement de la commande.");
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Erreur de connexion.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Erreur de connexion.";
+      setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -85,7 +124,8 @@ export default function CheckoutPage() {
         <div className="mt-8 p-6 bg-white/60 backdrop-blur border border-charcoal/10 rounded-lg max-w-md w-full text-left space-y-2 text-xs">
           <p><strong>Destinataire :</strong> {name}</p>
           <p><strong>Téléphone :</strong> {phone}</p>
-          <p><strong>Wilaya :</strong> {wilaya}</p>
+          <p><strong>Wilaya :</strong> {wilaya} ({deliveryType === "domicile" ? "Domicile" : "Bureau"})</p>
+          <p><strong>Frais de livraison :</strong> {formatPrice(deliveryPrice)}</p>
           <p><strong>Mode de paiement :</strong> Paiement en espèces à la livraison (COD)</p>
         </div>
         <div className="mt-10">
@@ -140,9 +180,9 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          {errorMessage && (
+          {(errorMessage || !isAvailable) && (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
-              {errorMessage}
+              {!isAvailable ? "Service non disponible pour cette wilaya" : errorMessage}
             </div>
           )}
 
@@ -191,6 +231,62 @@ export default function CheckoutPage() {
                     </option>
                   ))}
                 </select>
+
+                <div className="mt-3 flex items-center gap-6 text-xs text-charcoal">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="radio"
+                      name="delivery_type"
+                      value="domicile"
+                      checked={deliveryType === "domicile"}
+                      onChange={() => setDeliveryType("domicile")}
+                      className="text-teal-sarcelle focus:ring-teal-sarcelle"
+                    />
+                    <span>Livraison à domicile</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="radio"
+                      name="delivery_type"
+                      value="bureau"
+                      checked={deliveryType === "bureau"}
+                      onChange={() => setDeliveryType("bureau")}
+                      className="text-teal-sarcelle focus:ring-teal-sarcelle"
+                    />
+                    <span>Livraison au bureau</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-charcoal mb-2">
+                  Quantité <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="px-4 py-3 bg-parchment border border-r-0 border-charcoal/20 rounded-l-md text-sm text-charcoal hover:bg-charcoal/10 transition-colors"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    required
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, Math.min(99, parseInt(e.target.value) || 1)))}
+                    className="w-full text-center px-4 py-3 bg-parchment border border-charcoal/20 text-sm text-charcoal focus:outline-none focus:border-teal-sarcelle"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+                    className="px-4 py-3 bg-parchment border border-l-0 border-charcoal/20 rounded-r-md text-sm text-charcoal hover:bg-charcoal/10 transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -225,7 +321,7 @@ export default function CheckoutPage() {
               variant="teal"
               size="lg"
               className="w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isAvailable}
             >
               {isSubmitting ? "Validation en cours..." : "Confirmer ma Commande"}
             </Button>
@@ -244,10 +340,10 @@ export default function CheckoutPage() {
                 <div key={item.product_id} className="py-3 flex justify-between items-center text-sm">
                   <div>
                     <p className="font-serif font-medium text-charcoal">{item.name}</p>
-                    <p className="text-xs text-charcoal/60">Qté : {item.quantity}</p>
+                    <p className="text-xs text-charcoal/60">Qté : {item.quantity * quantity}</p>
                   </div>
                   <span className="font-semibold text-teal-sarcelle">
-                    {formatPrice(item.price * item.quantity)}
+                    {formatPrice(item.price * item.quantity * quantity)}
                   </span>
                 </div>
               ))}
@@ -259,12 +355,14 @@ export default function CheckoutPage() {
                 <span className="font-semibold">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-charcoal/80">
-                <span>Expédition (58 Wilayas)</span>
-                <span className="text-teal-sarcelle font-medium">Gratuite dès 8,000 DZD</span>
+                <span>Expédition ({deliveryType === "domicile" ? "Domicile" : "Bureau"})</span>
+                <span className="text-teal-sarcelle font-medium">
+                  {isAvailable ? formatPrice(deliveryPrice) : "Service non disponible"}
+                </span>
               </div>
               <div className="pt-3 border-t border-charcoal/10 flex justify-between text-lg font-serif font-semibold text-charcoal">
                 <span>Total à Payer</span>
-                <span className="text-teal-sarcelle">{formatPrice(subtotal)}</span>
+                <span className="text-teal-sarcelle">{formatPrice(total)}</span>
               </div>
             </div>
 

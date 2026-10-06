@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package, ShoppingBag, LayoutDashboard, LogOut, Store } from "lucide-react";
+import { Package, ShoppingBag, LayoutDashboard, LogOut, Store, Truck } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -46,6 +46,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <ShoppingBag className="w-4 h-4 text-pink-accent" />
               <span>Commandes</span>
             </Link>
+            <Link
+              href="/admin/delivery-rates"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-parchment/10 transition-colors"
+            >
+              <Truck className="w-4 h-4 text-pink-accent" />
+              <span>Tarifs Livraison</span>
+            </Link>
           </nav>
         </div>
 
@@ -76,10 +83,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div>
             <span className="text-lg font-serif font-light">CHAHRA Admin</span>
           </div>
-          <div className="flex items-center space-x-4 text-xs uppercase">
+          <div className="flex items-center space-x-3 text-[11px] uppercase">
             <Link href="/admin" className="hover:text-pink-accent">Accueil</Link>
             <Link href="/admin/products" className="hover:text-pink-accent">Produits</Link>
             <Link href="/admin/orders" className="hover:text-pink-accent">Commandes</Link>
+            <Link href="/admin/delivery-rates" className="hover:text-pink-accent">Tarifs</Link>
           </div>
         </header>
 
